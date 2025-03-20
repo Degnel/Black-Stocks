@@ -68,7 +68,6 @@ if error:
 else:
     # Calcul d'une moyenne mobile sur 50 jours
     data["MA50"] = data["Close"].rolling(window=50).mean()
-    st.write("Données récupérées pour :", selected_ticker)
     
     # --- Récupération des informations financières supplémentaires ---
     ticker_obj = yf.Ticker(selected_ticker)
@@ -210,13 +209,14 @@ if st.sidebar.button("Calculer les variations de capitalisation boursière"):
                 start_date = today - datetime.timedelta(days=182)
             elif period == "1y":
                 start_date = today - datetime.timedelta(days=365)
-            df = yf.download(ticker, start=start_date, end=today, progress=False)
+            end_date = start_date + datetime.timedelta(days=1)
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False)
             former_price = df['Close'][ticker]
             if shares_outstanding is None:
                 return None, None
             variation = (last_price - former_price) * shares_outstanding
-            percentage = (last_price - former_price) / former_price
-            return float(variation), f"{float(percentage):.2%}"
+            percentage = (last_price - former_price) / former_price * 100
+            return int(variation.iloc[0]), float(percentage.iloc[0])
         except Exception:
             return None, None
 
@@ -230,7 +230,6 @@ if st.sidebar.button("Calculer les variations de capitalisation boursière"):
         if var is not None:
             variations_list.append({"Ticker": t, "Variation": var, "Percentage": per})
         progress_bar.progress((i + 1) / total)
-
     if variations_list:
         df_variations = pd.DataFrame(variations_list)
         df_variations["AbsVariation"] = df_variations["Variation"].abs()
@@ -241,7 +240,9 @@ if st.sidebar.button("Calculer les variations de capitalisation boursière"):
             color = 'background-color: lightgreen' if row["Variation"] >= 0 else 'background-color: lightcoral'
             return [color] * len(row)
 
-        df_styled = df_variations.style.apply(color_row, axis=1)
+        df_styled = df_variations.style.apply(color_row, axis=1).format({
+            "Percentage": "{:.2f}%".format
+        })
         st.dataframe(df_styled)
     else:
         st.write("Aucune variation calculable.")
